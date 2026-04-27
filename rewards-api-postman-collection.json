@@ -1,0 +1,581 @@
+{
+  "info": {
+    "_postman_id": "rewards-api-collection-v1",
+    "name": "Retailer Rewards API",
+    "description": "Complete test collection for the Retailer Rewards Program API.\n\nRewards Rules:\n- 2 points per dollar spent over $100 per transaction\n- 1 point per dollar spent between $50–$100 per transaction\n- Example: $120 → (2×$20) + (1×$50) = 90 points\n\nSample Customers: C001 (Alice), C002 (Bob), C003 (Carol)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "apiVersion",
+      "value": "v1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🏥 Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/actuator/health",
+            "description": "Spring Actuator health check endpoint"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is UP', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('UP');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "App Info",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/actuator/info",
+            "description": "Application metadata (name, version, description)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🏆 Rewards – Single Customer",
+      "item": [
+        {
+          "name": "Get Rewards – Alice (default 3 months)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001"]
+            },
+            "description": "Returns rewards for Alice Johnson over the last 3 months (default)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has required fields', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.customerId).to.eql('C001');",
+                  "  pm.expect(body.customerName).to.eql('Alice Johnson');",
+                  "  pm.expect(body.totalRewardPoints).to.be.a('number');",
+                  "  pm.expect(body.monthsCovered).to.eql(3);",
+                  "  pm.expect(body.monthlyBreakdown).to.be.an('array');",
+                  "  pm.expect(body.membershipTier).to.eql('GOLD');",
+                  "});",
+                  "pm.test('Period dates are present', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.periodStart).to.exist;",
+                  "  pm.expect(body.periodEnd).to.exist;",
+                  "});",
+                  "pm.environment.set('aliceTotalPoints', pm.response.json().totalRewardPoints);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rewards – Alice (1 month)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001?months=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001"],
+              "query": [{"key": "months", "value": "1"}]
+            },
+            "description": "Returns rewards for Alice Johnson over the last 1 month."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('monthsCovered is 1', () => {",
+                  "  pm.expect(pm.response.json().monthsCovered).to.eql(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rewards – Alice (6 months)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001?months=6",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001"],
+              "query": [{"key": "months", "value": "6"}]
+            },
+            "description": "Returns rewards for Alice over 6 months – scalable time frame demo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('monthsCovered is 6', () => {",
+                  "  pm.expect(pm.response.json().monthsCovered).to.eql(6);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rewards – Bob (3 months)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C002?months=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C002"],
+              "query": [{"key": "months", "value": "3"}]
+            },
+            "description": "Returns rewards for Bob Smith over last 3 months."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Customer is Bob', () => {",
+                  "  pm.expect(pm.response.json().customerId).to.eql('C002');",
+                  "  pm.expect(pm.response.json().customerName).to.eql('Bob Smith');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rewards – Carol (3 months)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C003?months=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C003"],
+              "query": [{"key": "months", "value": "3"}]
+            },
+            "description": "Returns rewards for Carol Williams (PLATINUM tier) over last 3 months."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Carol is PLATINUM tier', () => {",
+                  "  pm.expect(pm.response.json().membershipTier).to.eql('PLATINUM');",
+                  "});",
+                  "pm.test('Carol has high reward points (big spender)', () => {",
+                  "  pm.expect(pm.response.json().totalRewardPoints).to.be.greaterThan(500);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📅 Rewards – Date Range",
+      "item": [
+        {
+          "name": "Get Rewards by Date Range – Alice",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001/range?startDate=2024-01-01&endDate=2024-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001", "range"],
+              "query": [
+                {"key": "startDate", "value": "2024-01-01"},
+                {"key": "endDate",   "value": "2024-12-31"}
+              ]
+            },
+            "description": "Explicit date-range query for Alice. Update dates to match seeded data range."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Dynamically set a 3-month window ending today",
+                  "const today = new Date();",
+                  "const past  = new Date();",
+                  "past.setMonth(past.getMonth() - 3);",
+                  "const fmt = d => d.toISOString().split('T')[0];",
+                  "pm.request.url.query.each(p => {",
+                  "  if (p.key === 'startDate') p.value = fmt(past);",
+                  "  if (p.key === 'endDate')   p.value = fmt(today);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('customerId is C001', () => {",
+                  "  pm.expect(pm.response.json().customerId).to.eql('C001');",
+                  "});",
+                  "pm.test('periodStart and periodEnd present', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.periodStart).to.exist;",
+                  "  pm.expect(b.periodEnd).to.exist;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rewards by Date Range – Bob",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C002/range?startDate=2024-01-01&endDate=2024-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C002", "range"],
+              "query": [
+                {"key": "startDate", "value": "2024-01-01"},
+                {"key": "endDate",   "value": "2024-12-31"}
+              ]
+            },
+            "description": "Explicit date-range query for Bob Smith."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const today = new Date();",
+                  "const past  = new Date();",
+                  "past.setMonth(past.getMonth() - 3);",
+                  "const fmt = d => d.toISOString().split('T')[0];",
+                  "pm.request.url.query.each(p => {",
+                  "  if (p.key === 'startDate') p.value = fmt(past);",
+                  "  if (p.key === 'endDate')   p.value = fmt(today);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('customerId is C002', () => {",
+                  "  pm.expect(pm.response.json().customerId).to.eql('C002');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👥 Rewards – All Customers",
+      "item": [
+        {
+          "name": "Get Rewards – All Customers (3 months)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards?months=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards"],
+              "query": [{"key": "months", "value": "3"}]
+            },
+            "description": "Returns reward summaries for ALL customers over the last 3 months."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array of customers', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.be.an('array');",
+                  "  pm.expect(body.length).to.be.greaterThan(0);",
+                  "});",
+                  "pm.test('Each entry has totalRewardPoints', () => {",
+                  "  pm.response.json().forEach(r => {",
+                  "    pm.expect(r.totalRewardPoints).to.be.a('number');",
+                  "  });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Rewards – All Customers (1 month)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards?months=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards"],
+              "query": [{"key": "months", "value": "1"}]
+            },
+            "description": "Returns reward summaries for all customers over the last month."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "❌ Error Scenarios",
+      "item": [
+        {
+          "name": "404 – Customer Not Found",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/INVALID_CUSTOMER",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "INVALID_CUSTOMER"]
+            },
+            "description": "Should return 404 with error body for an unknown customer ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error body has correct shape', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql(404);",
+                  "  pm.expect(body.error).to.eql('Not Found');",
+                  "  pm.expect(body.message).to.exist;",
+                  "  pm.expect(body.timestamp).to.exist;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 – months=0 (out of range)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001?months=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001"],
+              "query": [{"key": "months", "value": "0"}]
+            },
+            "description": "months must be between 1 and 36. Expects 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error body has status 400', () => {",
+                  "  pm.expect(pm.response.json().status).to.eql(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 – months=37 (too large)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001?months=37",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001"],
+              "query": [{"key": "months", "value": "37"}]
+            },
+            "description": "months exceeds max of 36. Expects 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 – months=abc (type mismatch)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001?months=abc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001"],
+              "query": [{"key": "months", "value": "abc"}]
+            },
+            "description": "Non-numeric months parameter. Expects 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 – Date Range: missing startDate",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001/range?endDate=2024-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001", "range"],
+              "query": [{"key": "endDate", "value": "2024-12-31"}]
+            },
+            "description": "startDate is required. Expects 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Missing param error message', () => {",
+                  "  pm.expect(pm.response.json().message).to.include('startDate');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 – Date Range: end before start",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001/range?startDate=2024-06-01&endDate=2024-01-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001", "range"],
+              "query": [
+                {"key": "startDate", "value": "2024-06-01"},
+                {"key": "endDate",   "value": "2024-01-01"}
+              ]
+            },
+            "description": "endDate is before startDate. Expects 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 – Date Range: future startDate",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/{{apiVersion}}/rewards/C001/range?startDate=2099-01-01&endDate=2099-06-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "{{apiVersion}}", "rewards", "C001", "range"],
+              "query": [
+                {"key": "startDate", "value": "2099-01-01"},
+                {"key": "endDate",   "value": "2099-06-01"}
+              ]
+            },
+            "description": "startDate in the future. Expects 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
