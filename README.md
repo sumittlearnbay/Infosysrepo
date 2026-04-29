@@ -23,15 +23,14 @@ A Spring Boot RESTful API that calculates customer reward points based on purcha
 ┌─────────────────────────────────────────────┐
 │              REST Controller                │
 │         RewardsController                   │
-│  GET /api/v1/rewards/{id}                   │
-│  GET /api/v1/rewards/{id}/range             │
-│  GET /api/v1/rewards                        │
+│  POST /api/v1/transactions                  │
+│    (queryType: single, range, all)          │
 └─────────────────┬───────────────────────────┘
                   │
 ┌─────────────────▼───────────────────────────┐
 │            Service Layer                    │
 │          RewardsService                     │
-│  • Point calculation logic                  │
+│  • Point calculation logic (BigDecimal)     │
 │  • Monthly grouping                         │
 │  • Date range validation                    │
 └─────────────────┬───────────────────────────┘
@@ -141,18 +140,25 @@ http://localhost:8080/api/v1
 
 ---
 
-### `GET /api/v1/rewards/{customerId}`
+### `POST /api/v1/transactions`
+
+Unified endpoint for handling all transaction reward queries. Route behavior based on `queryType` parameter.
+
+| Parameter    | Type    | Location | Required | Description                               |
+|-------------|---------|----------|----------|-------------------------------------------|
+| `queryType`  | String  | Query    | ✅       | Query mode: "single", "range", or "all"   |
+| `customerId` | String  | Query    | ⚠️       | Customer ID (required for single/range)   |
+| `months`     | Integer | Query    | ❌       | Look-back window for single/all (1–36)    |
+| `startDate`  | LocalDate | Query  | ⚠️       | Range start (required for range, YYYY-MM-DD) |
+| `endDate`    | LocalDate | Query  | ⚠️       | Range end (required for range, YYYY-MM-DD)  |
+
+#### Mode: `queryType=single`
 
 Calculate rewards for a single customer over the last N months.
 
-| Parameter    | Type    | Location | Required | Default | Description            |
-|-------------|---------|----------|----------|---------|------------------------|
-| `customerId` | String  | Path     | ✅       | –       | Customer identifier    |
-| `months`     | Integer | Query    | ❌       | `3`     | Look-back window (1–36)|
-
 **Sample Request**
 ```http
-GET /api/v1/rewards/C001?months=3
+POST /api/v1/transactions?queryType=single&customerId=C001&months=3
 ```
 
 **Sample Response (200 OK)**
@@ -189,34 +195,24 @@ GET /api/v1/rewards/C001?months=3
 
 ---
 
-### `GET /api/v1/rewards/{customerId}/range`
+#### Mode: `queryType=range`
 
 Calculate rewards for a single customer within an explicit date range.
 
-| Parameter    | Type       | Location | Required | Description             |
-|-------------|------------|----------|----------|-------------------------|
-| `customerId` | String     | Path     | ✅       | Customer identifier     |
-| `startDate`  | LocalDate  | Query    | ✅       | Range start (YYYY-MM-DD)|
-| `endDate`    | LocalDate  | Query    | ✅       | Range end   (YYYY-MM-DD)|
-
 **Sample Request**
 ```http
-GET /api/v1/rewards/C001/range?startDate=2024-10-01&endDate=2024-12-31
+POST /api/v1/transactions?queryType=range&customerId=C001&startDate=2024-10-01&endDate=2024-12-31
 ```
 
 ---
 
-### `GET /api/v1/rewards`
+#### Mode: `queryType=all`
 
-Calculate rewards for **all** customers.
-
-| Parameter | Type    | Location | Required | Default | Description            |
-|----------|---------|----------|----------|---------|------------------------|
-| `months`  | Integer | Query    | ❌       | `3`     | Look-back window (1–36)|
+Calculate rewards for **all** customers over the last N months.
 
 **Sample Request**
 ```http
-GET /api/v1/rewards?months=3
+POST /api/v1/transactions?queryType=all&months=3
 ```
 
 Returns a JSON array with one `RewardsResponse` per customer.

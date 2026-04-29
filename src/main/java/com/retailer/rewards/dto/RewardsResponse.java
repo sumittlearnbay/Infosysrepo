@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -42,5 +43,5 @@ public class RewardsResponse {
     private int totalTransactions;
 
     /** Grand total of reward points across all months. */
-    private long totalRewardPoints;
+    private BigDecimal totalRewardPoints;
 }

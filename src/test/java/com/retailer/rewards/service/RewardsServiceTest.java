@@ -59,61 +59,61 @@ class RewardsServiceTest {
         @Test
         @DisplayName("$0 → 0 points")
         void zeroDollars() {
-            assertThat(rewardsService.calculatePoints(BigDecimal.ZERO)).isEqualTo(0L);
+            assertThat(rewardsService.calculatePoints(BigDecimal.ZERO)).isEqualTo(BigDecimal.ZERO);
         }
 
         @Test
         @DisplayName("$49.99 → 0 points (below $50 threshold)")
         void belowFiftyThreshold() {
-            assertThat(rewardsService.calculatePoints(new BigDecimal("49.99"))).isEqualTo(0L);
+            assertThat(rewardsService.calculatePoints(new BigDecimal("49.99"))).isEqualTo(BigDecimal.ZERO);
         }
 
         @Test
         @DisplayName("$50.00 → 0 points (exactly at lower boundary, exclusive)")
         void exactlyFifty() {
-            assertThat(rewardsService.calculatePoints(new BigDecimal("50.00"))).isEqualTo(0L);
+            assertThat(rewardsService.calculatePoints(new BigDecimal("50.00"))).isEqualTo(BigDecimal.ZERO);
         }
 
         @Test
         @DisplayName("$50.50 → 0 points (cents below $51)")
         void fiftyFiftyCents() {
             // Only whole dollars are counted – $50.50 earns 0 points (floor to $50, not over)
-            assertThat(rewardsService.calculatePoints(new BigDecimal("50.50"))).isEqualTo(0L);
+            assertThat(rewardsService.calculatePoints(new BigDecimal("50.50"))).isEqualTo(BigDecimal.ZERO);
         }
 
         @Test
         @DisplayName("$75.00 → 25 points (1 pt per dollar between $50–$100)")
         void seventyFiveDollars() {
             // $75 - $50 = $25 → 25 points
-            assertThat(rewardsService.calculatePoints(new BigDecimal("75.00"))).isEqualTo(25L);
+            assertThat(rewardsService.calculatePoints(new BigDecimal("75.00"))).isEqualTo(new BigDecimal("25"));
         }
 
         @Test
         @DisplayName("$100.00 → 50 points (exactly at second boundary)")
         void exactlyHundred() {
             // $100 - $50 = $50 at 1 pt = 50 points; nothing above $100
-            assertThat(rewardsService.calculatePoints(new BigDecimal("100.00"))).isEqualTo(50L);
+            assertThat(rewardsService.calculatePoints(new BigDecimal("100.00"))).isEqualTo(new BigDecimal("50"));
         }
 
         @Test
         @DisplayName("$120.00 → 90 points (example from spec)")
         void specExample() {
             // (2 × $20) + (1 × $50) = 40 + 50 = 90
-            assertThat(rewardsService.calculatePoints(new BigDecimal("120.00"))).isEqualTo(90L);
+            assertThat(rewardsService.calculatePoints(new BigDecimal("120.00"))).isEqualTo(new BigDecimal("90"));
         }
 
         @Test
         @DisplayName("$200.00 → 250 points")
         void twoHundredDollars() {
             // (2 × $100) + (1 × $50) = 200 + 50 = 250
-            assertThat(rewardsService.calculatePoints(new BigDecimal("200.00"))).isEqualTo(250L);
+            assertThat(rewardsService.calculatePoints(new BigDecimal("200.00"))).isEqualTo(new BigDecimal("250"));
         }
 
         @Test
         @DisplayName("$500.00 → 850 points")
         void fiveHundredDollars() {
             // (2 × $400) + (1 × $50) = 800 + 50 = 850
-            assertThat(rewardsService.calculatePoints(new BigDecimal("500.00"))).isEqualTo(850L);
+            assertThat(rewardsService.calculatePoints(new BigDecimal("500.00"))).isEqualTo(new BigDecimal("850"));
         }
 
         @Test
@@ -155,7 +155,7 @@ class RewardsServiceTest {
             RewardsResponse response = rewardsService.calculateRewardsForLastNMonths("C001", 3);
 
             // 120 → 90 pts; 75 → 25 pts; 200 → 250 pts; total = 365
-            assertThat(response.getTotalRewardPoints()).isEqualTo(365L);
+            assertThat(response.getTotalRewardPoints()).isEqualTo(new BigDecimal("365"));
             assertThat(response.getTotalTransactions()).isEqualTo(3);
             assertThat(response.getCustomerId()).isEqualTo("C001");
             assertThat(response.getMonthsCovered()).isEqualTo(3);
@@ -254,7 +254,7 @@ class RewardsServiceTest {
                     eq("C001"), any(), any())).thenReturn(txns);
 
             RewardsResponse response = rewardsService.calculateRewardsByDateRange("C001", start, end);
-            assertThat(response.getTotalRewardPoints()).isEqualTo(90L); // $120 → 90 pts
+            assertThat(response.getTotalRewardPoints()).isEqualTo(new BigDecimal("90")); // $120 → 90 pts
         }
 
         @Test
@@ -372,7 +372,7 @@ class RewardsServiceTest {
             RewardsResponse response = rewardsService.calculateRewardsForLastNMonths("C001", 3);
             // Two different months → two monthly entries, 90 pts each
             assertThat(response.getMonthlyBreakdown()).hasSize(2);
-            assertThat(response.getTotalRewardPoints()).isEqualTo(180L);
+            assertThat(response.getTotalRewardPoints()).isEqualTo(new BigDecimal("180"));
         }
     }
 

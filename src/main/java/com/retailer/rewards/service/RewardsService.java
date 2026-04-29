@@ -114,30 +114,30 @@ public class RewardsService {
 
     /**
      * Calculates the reward points earned for a single transaction amount.
-     * Exposed as a public utility so it can be tested independently.
+     * Returns points as BigDecimal to preserve fractional values with explicit rounding.
      *
      * @param amount transaction amount (must be non-negative)
-     * @return points earned
+     * @return points earned with proper decimal precision
      */
-    public long calculatePoints(BigDecimal amount) {
+    public BigDecimal calculatePoints(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Transaction amount must not be negative");
         }
 
-        long points = 0L;
+        BigDecimal points = BigDecimal.ZERO;
 
         if (amount.compareTo(TIER_TWO_THRESHOLD) > 0) {
             // Dollars above $100 earn 2 points each
             BigDecimal aboveHundred = amount.subtract(TIER_TWO_THRESHOLD);
-            points += aboveHundred.longValue() * 2;
+            points = points.add(aboveHundred.multiply(new BigDecimal("2")));
 
             // Dollars between $50 and $100 earn 1 point each
-            points += TIER_TWO_THRESHOLD.subtract(TIER_ONE_THRESHOLD).longValue();
+            points = points.add(TIER_TWO_THRESHOLD.subtract(TIER_ONE_THRESHOLD));
 
         } else if (amount.compareTo(TIER_ONE_THRESHOLD) > 0) {
             // Dollars between $50 and $100 earn 1 point each
             BigDecimal betweenFiftyAndHundred = amount.subtract(TIER_ONE_THRESHOLD);
-            points += betweenFiftyAndHundred.longValue();
+            points = points.add(betweenFiftyAndHundred);
         }
 
         return points;
@@ -165,18 +165,18 @@ public class RewardsService {
                         Collectors.toList()));
 
         List<MonthlyRewardsSummary> monthlyBreakdown = new ArrayList<>();
-        long totalPoints = 0L;
+        BigDecimal totalPoints = BigDecimal.ZERO;
 
         for (Map.Entry<YearMonth, List<Transaction>> entry : byMonth.entrySet()) {
             YearMonth ym = entry.getKey();
             List<Transaction> monthTxns = entry.getValue();
 
             List<TransactionRewardDetail> details = new ArrayList<>();
-            long monthlyPoints = 0L;
+            BigDecimal monthlyPoints = BigDecimal.ZERO;
 
             for (Transaction t : monthTxns) {
-                long pts = calculatePoints(t.getAmount());
-                monthlyPoints += pts;
+                BigDecimal pts = calculatePoints(t.getAmount());
+                monthlyPoints = monthlyPoints.add(pts);
                 details.add(TransactionRewardDetail.builder()
                         .transactionId(t.getTransactionId())
                         .transactionDate(t.getTransactionDate())
@@ -197,7 +197,7 @@ public class RewardsService {
                     .transactions(details)
                     .build());
 
-            totalPoints += monthlyPoints;
+            totalPoints = totalPoints.add(monthlyPoints);
         }
 
         int monthsCovered = (int) YearMonth.from(startDate)

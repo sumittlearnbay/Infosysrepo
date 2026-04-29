@@ -20,6 +20,6 @@ public class TransactionRewardDetail {
     private String transactionId;
     private LocalDate transactionDate;
     private BigDecimal amount;
-    private long pointsEarned;
+    private BigDecimal pointsEarned;
     private String description;
 }
