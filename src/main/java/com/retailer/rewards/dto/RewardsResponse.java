@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Top-level API response for the rewards calculation endpoint.
+ * Top-level API response for the rewards query endpoint.
  * Contains customer info, monthly breakdowns, and the grand total.
  */
 @Data

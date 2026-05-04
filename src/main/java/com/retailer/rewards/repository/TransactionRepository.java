@@ -7,128 +7,137 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
- * In-memory data store seeded with sample customers and transactions.
- * <p>
- * In a production system this would be backed by MongoDB or another
- * persistent store.  The data here covers the last three calendar months
- * so the default API scenario works out of the box.
+ * In-memory repository with seeded test data.
  */
 @Repository
 public class TransactionRepository {
 
-    private static final Map<String, Customer> CUSTOMERS = new LinkedHashMap<>();
-    private static final List<Transaction> TRANSACTIONS = new ArrayList<>();
+    private final Map<String, Customer> customers;
+    private final List<Transaction> transactions;
 
-    static {
-        // ── Customers ────────────────────────────────────────────────────────
-        LocalDate now = LocalDate.now();
+    public TransactionRepository() {
+        this.customers = new HashMap<>();
+        this.transactions = new ArrayList<>();
+        seedData();
+    }
 
-        CUSTOMERS.put("C001", Customer.builder()
+    /**
+     * Seeds repository with sample customers and transactions.
+     */
+    private void seedData() {
+        // Create sample customers
+        customers.put("C001", Customer.builder()
                 .customerId("C001")
-                .firstName("Alice")
-                .lastName("Johnson")
-                .email("alice.johnson@example.com")
+                .name("Alice Johnson")
+                .email("alice@example.com")
                 .membershipTier("GOLD")
                 .build());
 
-        CUSTOMERS.put("C002", Customer.builder()
+        customers.put("C002", Customer.builder()
                 .customerId("C002")
-                .firstName("Bob")
-                .lastName("Smith")
-                .email("bob.smith@example.com")
+                .name("Bob Smith")
+                .email("bob@example.com")
                 .membershipTier("SILVER")
                 .build());
 
-        CUSTOMERS.put("C003", Customer.builder()
+        customers.put("C003", Customer.builder()
                 .customerId("C003")
-                .firstName("Carol")
-                .lastName("Williams")
-                .email("carol.williams@example.com")
-                .membershipTier("PLATINUM")
+                .name("Carol White")
+                .email("carol@example.com")
+                .membershipTier("BRONZE")
                 .build());
 
-        // ── Transactions – last 3 months relative to today ───────────────────
+        // Seed transactions for last 3 months
+        LocalDate today = LocalDate.now();
+        LocalDate threeMonthsAgo = today.minusMonths(3);
 
-        // Alice – month 0 (current month)
-        TRANSACTIONS.add(tx("T001", "C001", "120.00", now.withDayOfMonth(5),  "Amazon"));
-        TRANSACTIONS.add(tx("T002", "C001",  "75.00", now.withDayOfMonth(12), "Target"));
-        TRANSACTIONS.add(tx("T003", "C001",  "40.00", now.withDayOfMonth(18), "Starbucks"));
+        // C001 transactions
+        transactions.add(Transaction.builder()
+                .transactionId("T001")
+                .customerId("C001")
+                .transactionDate(threeMonthsAgo.plusDays(5))
+                .amount(new BigDecimal("120.75"))
+                .description("Electronics Purchase")
+                .build());
 
-        // Alice – month -1
-        TRANSACTIONS.add(tx("T004", "C001", "200.00", now.minusMonths(1).withDayOfMonth(3),  "Best Buy"));
-        TRANSACTIONS.add(tx("T005", "C001",  "85.00", now.minusMonths(1).withDayOfMonth(14), "Walmart"));
-        TRANSACTIONS.add(tx("T006", "C001",  "55.00", now.minusMonths(1).withDayOfMonth(22), "Whole Foods"));
+        transactions.add(Transaction.builder()
+                .transactionId("T002")
+                .customerId("C001")
+                .transactionDate(threeMonthsAgo.plusDays(15))
+                .amount(new BigDecimal("75.50"))
+                .description("Grocery Store")
+                .build());
 
-        // Alice – month -2
-        TRANSACTIONS.add(tx("T007", "C001", "150.00", now.minusMonths(2).withDayOfMonth(8),  "Apple Store"));
-        TRANSACTIONS.add(tx("T008", "C001",  "30.00", now.minusMonths(2).withDayOfMonth(17), "Dunkin"));
-        TRANSACTIONS.add(tx("T009", "C001", "110.00", now.minusMonths(2).withDayOfMonth(25), "Nike"));
+        transactions.add(Transaction.builder()
+                .transactionId("T003")
+                .customerId("C001")
+                .transactionDate(today.minusDays(10))
+                .amount(new BigDecimal("200.00"))
+                .description("Fashion Retail")
+                .build());
 
-        // Bob – month 0
-        TRANSACTIONS.add(tx("T010", "C002",  "60.00", now.withDayOfMonth(7),  "Home Depot"));
-        TRANSACTIONS.add(tx("T011", "C002", "130.00", now.withDayOfMonth(15), "Costco"));
+        // C002 transactions
+        transactions.add(Transaction.builder()
+                .transactionId("T004")
+                .customerId("C002")
+                .transactionDate(threeMonthsAgo.plusDays(8))
+                .amount(new BigDecimal("95.25"))
+                .description("Restaurant")
+                .build());
 
-        // Bob – month -1
-        TRANSACTIONS.add(tx("T012", "C002",  "45.00", now.minusMonths(1).withDayOfMonth(6),  "CVS"));
-        TRANSACTIONS.add(tx("T013", "C002", "180.00", now.minusMonths(1).withDayOfMonth(20), "Lowe's"));
+        transactions.add(Transaction.builder()
+                .transactionId("T005")
+                .customerId("C002")
+                .transactionDate(today.minusDays(5))
+                .amount(new BigDecimal("150.00"))
+                .description("Home Goods")
+                .build());
 
-        // Bob – month -2
-        TRANSACTIONS.add(tx("T014", "C002",  "95.00", now.minusMonths(2).withDayOfMonth(10), "Macy's"));
-        TRANSACTIONS.add(tx("T015", "C002", "250.00", now.minusMonths(2).withDayOfMonth(28), "Samsung Store"));
+        // C003 transactions
+        transactions.add(Transaction.builder()
+                .transactionId("T006")
+                .customerId("C003")
+                .transactionDate(threeMonthsAgo.plusDays(2))
+                .amount(new BigDecimal("45.99"))
+                .description("Books")
+                .build());
 
-        // Carol – month 0
-        TRANSACTIONS.add(tx("T016", "C003", "500.00", now.withDayOfMonth(2),  "Louis Vuitton"));
-        TRANSACTIONS.add(tx("T017", "C003",  "75.00", now.withDayOfMonth(9),  "Sephora"));
-
-        // Carol – month -1
-        TRANSACTIONS.add(tx("T018", "C003", "320.00", now.minusMonths(1).withDayOfMonth(1),  "Gucci"));
-        TRANSACTIONS.add(tx("T019", "C003",  "49.00", now.minusMonths(1).withDayOfMonth(15), "Barnes & Noble"));
-
-        // Carol – month -2
-        TRANSACTIONS.add(tx("T020", "C003", "410.00", now.minusMonths(2).withDayOfMonth(5),  "Nordstrom"));
-        TRANSACTIONS.add(tx("T021", "C003", "100.00", now.minusMonths(2).withDayOfMonth(19), "Pottery Barn"));
+        transactions.add(Transaction.builder()
+                .transactionId("T007")
+                .customerId("C003")
+                .transactionDate(today.minusDays(1))
+                .amount(new BigDecimal("125.50"))
+                .description("Cosmetics")
+                .build());
     }
 
-    // ── Public API ───────────────────────────────────────────────────────────
-
+    /**
+     * Finds a customer by ID.
+     */
     public Optional<Customer> findCustomerById(String customerId) {
-        return Optional.ofNullable(CUSTOMERS.get(customerId));
+        return Optional.ofNullable(customers.get(customerId));
     }
 
-    public List<Customer> findAllCustomers() {
-        return new ArrayList<>(CUSTOMERS.values());
-    }
-
+    /**
+     * Finds transactions for a customer within a date range.
+     */
     public List<Transaction> findTransactionsByCustomerIdAndDateRange(
             String customerId, LocalDate startDate, LocalDate endDate) {
-
-        List<Transaction> result = new ArrayList<>();
-        for (Transaction t : TRANSACTIONS) {
-            if (t.getCustomerId().equals(customerId)
-                    && !t.getTransactionDate().isBefore(startDate)
-                    && !t.getTransactionDate().isAfter(endDate)) {
-                result.add(t);
-            }
-        }
-        return result;
+        return transactions.stream()
+                .filter(t -> t.getCustomerId().equals(customerId))
+                .filter(t -> !t.getTransactionDate().isBefore(startDate))
+                .filter(t -> !t.getTransactionDate().isAfter(endDate))
+                .sorted(Comparator.comparing(Transaction::getTransactionDate))
+                .collect(Collectors.toList());
     }
 
-    public List<Transaction> findAllTransactions() {
-        return Collections.unmodifiableList(TRANSACTIONS);
-    }
-
-    // ── Helper ───────────────────────────────────────────────────────────────
-
-    private static Transaction tx(String id, String custId, String amount,
-                                   LocalDate date, String desc) {
-        return Transaction.builder()
-                .transactionId(id)
-                .customerId(custId)
-                .amount(new BigDecimal(amount))
-                .transactionDate(date)
-                .description(desc)
-                .build();
+    /**
+     * Returns all customers.
+     */
+    public List<Customer> findAllCustomers() {
+        return new ArrayList<>(customers.values());
     }
 }

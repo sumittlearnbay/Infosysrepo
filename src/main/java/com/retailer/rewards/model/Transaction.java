@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Represents a single customer purchase transaction.
+ * Represents a customer transaction.
  */
 @Data
 @Builder
@@ -17,18 +17,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class Transaction {
 
-    /** Unique transaction identifier. */
     private String transactionId;
-
-    /** ID of the customer who made the purchase. */
     private String customerId;
-
-    /** Amount spent in this transaction (USD). */
-    private BigDecimal amount;
-
-    /** Date the transaction occurred. */
     private LocalDate transactionDate;
-
-    /** Optional description / merchant name. */
+    private BigDecimal amount;
     private String description;
 }

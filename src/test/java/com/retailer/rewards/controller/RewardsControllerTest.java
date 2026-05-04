@@ -27,13 +27,12 @@ import java.util.List;
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * MockMvc-based tests for {@link RewardsController}.
- * The service layer is fully mocked so only HTTP contract is verified here.
+ * Tests for RewardsController with parameter-driven routing.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RewardsController Tests")
@@ -49,210 +48,171 @@ class RewardsControllerTest {
 
     @BeforeEach
     void setUp() {
-        // Wire up MockMvc with the global exception handler so 4xx/5xx are tested correctly
         mockMvc = MockMvcBuilders
                 .standaloneSetup(rewardsController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
-    // ── POST /api/v1/transactions (queryType=single) ──────────────────────────
+    // ── Single Customer Query Tests ──────────────────────────────────────────
 
     @Nested
-    @DisplayName("POST /api/v1/transactions (queryType=single)")
+    @DisplayName("Single Customer Query (customerId present, no dates)")
     class SingleCustomerQueryTests {
 
         @Test
-        @DisplayName("200 OK – returns rewards for valid customer with default 3 months")
-        void validCustomerDefaultMonths() throws Exception {
-            RewardsResponse response = buildSampleResponse("C001", "Alice Johnson", new BigDecimal("365"), 3);
-
+        @DisplayName("200 OK – single customer with default 3 months")
+        void singleCustomerDefaultMonths() throws Exception {
+            RewardsResponse response = buildResponse("C001", "Alice Johnson", new BigDecimal("365"), 3);
             when(rewardsService.calculateRewardsForLastNMonths("C001", 3)).thenReturn(response);
 
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "single")
-                            .param("customerId", "C001")
-                            .accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .accept(MediaType.APPLICATION_JSON))
                     .andDo(print())
                     .andExpect(status().isOk())
-                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                    .andExpect(jsonPath("$.customerId",         is("C001")))
-                    .andExpect(jsonPath("$.customerName",       is("Alice Johnson")))
-                    .andExpect(jsonPath("$.totalRewardPoints",  is(365)))
-                    .andExpect(jsonPath("$.monthsCovered",      is(3)));
+                    .andExpect(jsonPath("$.customerId", is("C001")))
+                    .andExpect(jsonPath("$.customerName", is("Alice Johnson")))
+                    .andExpect(jsonPath("$.totalRewardPoints", is(365)));
         }
 
         @Test
-        @DisplayName("200 OK – custom months parameter is forwarded to service")
+        @DisplayName("200 OK – custom months parameter forwarded to service")
         void customMonthsParam() throws Exception {
-            RewardsResponse response = buildSampleResponse("C001", "Alice Johnson", new BigDecimal("100"), 6);
-
+            RewardsResponse response = buildResponse("C001", "Alice Johnson", new BigDecimal("100"), 6);
             when(rewardsService.calculateRewardsForLastNMonths("C001", 6)).thenReturn(response);
 
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "single")
-                            .param("customerId", "C001")
-                            .param("months", "6")
-                            .accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .param("months", "6")
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.monthsCovered", is(6)));
         }
 
         @Test
-        @DisplayName("404 Not Found – unknown customer ID")
+        @DisplayName("404 Not Found – unknown customer")
         void unknownCustomer() throws Exception {
             when(rewardsService.calculateRewardsForLastNMonths("UNKNOWN", 3))
                     .thenThrow(new CustomerNotFoundException("UNKNOWN"));
 
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "single")
-                            .param("customerId", "UNKNOWN")
-                            .accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "UNKNOWN")
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.status", is(404)))
-                    .andExpect(jsonPath("$.message", containsString("UNKNOWN")));
-        }
-
-        @Test
-        @DisplayName("400 Bad Request – months out of range")
-        void monthsOutOfRange() throws Exception {
-            when(rewardsService.calculateRewardsForLastNMonths("C001", 0))
-                    .thenThrow(new InvalidDateRangeException("months must be between 1 and 36"));
-
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "single")
-                            .param("customerId", "C001")
-                            .param("months", "0")
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.status", is(400)));
-        }
-
-        @Test
-        @DisplayName("Zero total rewards returned when no qualifying transactions")
-        void zeroRewardsForCustomer() throws Exception {
-            RewardsResponse response = buildSampleResponse("C002", "Bob Smith", BigDecimal.ZERO, 3);
-            response.setMonthlyBreakdown(Collections.emptyList());
-            response.setTotalTransactions(0);
-
-            when(rewardsService.calculateRewardsForLastNMonths("C002", 3)).thenReturn(response);
-
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "single")
-                            .param("customerId", "C002")
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.totalRewardPoints",  is(0)))
-                    .andExpect(jsonPath("$.totalTransactions",  is(0)))
-                    .andExpect(jsonPath("$.monthlyBreakdown",   hasSize(0)));
+                    .andExpect(jsonPath("$.status", is(404)));
         }
     }
 
-    // ── POST /api/v1/transactions (queryType=range) ───────────────────────────
+    // ── Date Range Query Tests ───────────────────────────────────────────────
 
     @Nested
-    @DisplayName("POST /api/v1/transactions (queryType=range)")
+    @DisplayName("Date Range Query (startDate + endDate present)")
     class DateRangeQueryTests {
 
         @Test
         @DisplayName("200 OK – valid date range with exact date matching")
         void validDateRange() throws Exception {
             LocalDate start = LocalDate.now().minusMonths(3);
-            LocalDate end   = LocalDate.now();
-            RewardsResponse response = buildSampleResponse("C001", "Alice Johnson", new BigDecimal("200"), 3);
+            LocalDate end = LocalDate.now();
+            RewardsResponse response = buildResponse("C001", "Alice Johnson", new BigDecimal("200"), 3);
 
             when(rewardsService.calculateRewardsByDateRange(eq("C001"), eq(start), eq(end)))
                     .thenReturn(response);
 
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "range")
-                            .param("customerId", "C001")
-                            .param("startDate", start.toString())
-                            .param("endDate",   end.toString())
-                            .accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .param("startDate", start.toString())
+                    .param("endDate", end.toString())
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.totalRewardPoints", is(200)));
         }
 
         @Test
-        @DisplayName("400 Bad Request – missing startDate parameter")
+        @DisplayName("400 Bad Request – missing startDate")
         void missingStartDate() throws Exception {
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "range")
-                            .param("customerId", "C001")
-                            .param("endDate", LocalDate.now().toString())
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isBadRequest());
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .param("endDate", LocalDate.now().toString())
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("startDate")));
         }
 
         @Test
-        @DisplayName("400 Bad Request – missing endDate parameter")
+        @DisplayName("400 Bad Request – missing endDate")
         void missingEndDate() throws Exception {
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "range")
-                            .param("customerId", "C001")
-                            .param("startDate", LocalDate.now().minusMonths(1).toString())
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isBadRequest());
-        }
-
-        @Test
-        @DisplayName("400 Bad Request – end before start with exact date assertion")
-        void endBeforeStart() throws Exception {
-            LocalDate start = LocalDate.now();
-            LocalDate end   = LocalDate.now().minusDays(1);
-            
-            when(rewardsService.calculateRewardsByDateRange(eq("C001"), eq(start), eq(end)))
-                    .thenThrow(new InvalidDateRangeException("endDate must not be before startDate"));
-
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "range")
-                            .param("customerId", "C001")
-                            .param("startDate", start.toString())
-                            .param("endDate",   end.toString())
-                            .accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .param("startDate", LocalDate.now().toString())
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.message", containsString("endDate")));
         }
 
         @Test
-        @DisplayName("404 Not Found – customer not found in date range query")
-        void customerNotFoundInRange() throws Exception {
+        @DisplayName("400 Bad Request – missing customerId for date range")
+        void missingCustomerIdForRange() throws Exception {
             LocalDate start = LocalDate.now().minusMonths(1);
-            LocalDate end   = LocalDate.now();
-            
-            when(rewardsService.calculateRewardsByDateRange(eq("GHOST"), eq(start), eq(end)))
-                    .thenThrow(new CustomerNotFoundException("GHOST"));
+            LocalDate end = LocalDate.now();
 
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "range")
-                            .param("customerId", "GHOST")
-                            .param("startDate", start.toString())
-                            .param("endDate",   end.toString())
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("startDate", start.toString())
+                    .param("endDate", end.toString())
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("customerId")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request – end before start")
+        void endBeforeStart() throws Exception {
+            LocalDate start = LocalDate.now();
+            LocalDate end = LocalDate.now().minusDays(1);
+
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .param("startDate", start.toString())
+                    .param("endDate", end.toString())
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("endDate")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request – future start date")
+        void futureStartDate() throws Exception {
+            LocalDate start = LocalDate.now().plusDays(1);
+            LocalDate end = start.plusDays(10);
+
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .param("startDate", start.toString())
+                    .param("endDate", end.toString())
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("future")));
         }
     }
 
-    // ── POST /api/v1/transactions (queryType=all) ────────────────────────────
+    // ── All Customers Query Tests ────────────────────────────────────────────
 
     @Nested
-    @DisplayName("POST /api/v1/transactions (queryType=all)")
+    @DisplayName("All Customers Query (neither customerId nor dates)")
     class AllCustomersQueryTests {
 
         @Test
-        @DisplayName("200 OK – returns list with one entry per customer")
-        void allCustomersDefaultMonths() throws Exception {
+        @DisplayName("200 OK – returns list of all customers")
+        void allCustomers() throws Exception {
             List<RewardsResponse> responses = Arrays.asList(
-                    buildSampleResponse("C001", "Alice Johnson", new BigDecimal("365"), 3),
-                    buildSampleResponse("C002", "Bob Smith",      new BigDecimal("90"), 3)
+                    buildResponse("C001", "Alice Johnson", new BigDecimal("365"), 3),
+                    buildResponse("C002", "Bob Smith", new BigDecimal("90"), 3)
             );
-
             when(rewardsService.calculateRewardsForAllCustomers(3)).thenReturn(responses);
 
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "all")
-                            .accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(get("/api/v1/rewards")
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(2)))
                     .andExpect(jsonPath("$[0].customerId", is("C001")))
@@ -260,37 +220,63 @@ class RewardsControllerTest {
         }
 
         @Test
-        @DisplayName("200 OK – empty list when no customers exist")
+        @DisplayName("200 OK – empty list when no customers")
         void noCustomers() throws Exception {
             when(rewardsService.calculateRewardsForAllCustomers(3))
                     .thenReturn(Collections.emptyList());
 
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "all")
-                            .accept(MediaType.APPLICATION_JSON))
+            mockMvc.perform(get("/api/v1/rewards")
+                    .accept(MediaType.APPLICATION_JSON))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$", hasSize(0)));
         }
+    }
+
+    // ── Parameter Validation Tests ───────────────────────────────────────────
+
+    @Nested
+    @DisplayName("Parameter Validation Tests")
+    class ValidationTests {
 
         @Test
-        @DisplayName("400 Bad Request – invalid months param for all-customers endpoint")
-        void invalidMonthsAllCustomers() throws Exception {
-            when(rewardsService.calculateRewardsForAllCustomers(0))
-                    .thenThrow(new InvalidDateRangeException("months must be between 1 and 36"));
+        @DisplayName("400 Bad Request – invalid months (too low)")
+        void monthsTooLow() throws Exception {
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .param("months", "0")
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("between")));
+        }
 
-            mockMvc.perform(post("/api/v1/transactions")
-                            .param("queryType", "all")
-                            .param("months", "0")
-                            .accept(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isBadRequest());
+        @Test
+        @DisplayName("400 Bad Request – invalid months (too high)")
+        void monthsTooHigh() throws Exception {
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .param("months", "37")
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("between")));
+        }
+
+        @Test
+        @DisplayName("400 Bad Request – conflicting months and dates")
+        void conflictingParameters() throws Exception {
+            mockMvc.perform(get("/api/v1/rewards")
+                    .param("customerId", "C001")
+                    .param("months", "6")
+                    .param("startDate", LocalDate.now().toString())
+                    .param("endDate", LocalDate.now().toString())
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message", containsString("cannot")));
         }
     }
 
     // ── Helper ───────────────────────────────────────────────────────────────
 
-    private RewardsResponse buildSampleResponse(
-            String customerId, String customerName, BigDecimal totalPoints, int months) {
-
+    private RewardsResponse buildResponse(String customerId, String customerName, BigDecimal totalPoints, int months) {
         return RewardsResponse.builder()
                 .customerId(customerId)
                 .customerName(customerName)

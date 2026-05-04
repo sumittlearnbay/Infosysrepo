@@ -4,41 +4,27 @@ import com.retailer.rewards.dto.MonthlyRewardsSummary;
 import com.retailer.rewards.dto.RewardsResponse;
 import com.retailer.rewards.dto.TransactionRewardDetail;
 import com.retailer.rewards.exception.CustomerNotFoundException;
-import com.retailer.rewards.exception.InvalidDateRangeException;
 import com.retailer.rewards.model.Customer;
 import com.retailer.rewards.model.Transaction;
 import com.retailer.rewards.repository.TransactionRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Core business logic for the Rewards Program.
- *
- * <h3>Calculation Rules</h3>
- * <ul>
- *   <li>2 points per dollar spent <strong>over $100</strong> in a single transaction</li>
- *   <li>1 point per dollar spent <strong>between $50 and $100</strong> (inclusive) in a single transaction</li>
- *   <li>No points for amounts at or below $50</li>
- * </ul>
- *
- * <h3>Example</h3>
- * $120 purchase → (2 × $20) + (1 × $50) = <strong>90 points</strong>
+ * Service for calculating customer rewards.
  */
 @Service
 public class RewardsService {
 
-    private static final Logger log = LoggerFactory.getLogger(RewardsService.class);
-
-    private static final BigDecimal TIER_ONE_THRESHOLD  = new BigDecimal("50");
-    private static final BigDecimal TIER_TWO_THRESHOLD  = new BigDecimal("100");
-    private static final int        MAX_MONTHS          = 36;   // sanity cap
+    private static final BigDecimal TIER_ONE_THRESHOLD = new BigDecimal("50");
+    private static final BigDecimal TIER_TWO_THRESHOLD = new BigDecimal("100");
 
     private final TransactionRepository transactionRepository;
 
@@ -46,83 +32,20 @@ public class RewardsService {
         this.transactionRepository = transactionRepository;
     }
 
-    // ── Public API ───────────────────────────────────────────────────────────
-
     /**
-     * Calculates rewards for a customer over the last {@code months} calendar months
-     * (ending today).
-     *
-     * @param customerId the customer to query
-     * @param months     number of months to look back (1–36)
-     * @return fully populated {@link RewardsResponse}
-     * @throws CustomerNotFoundException  if no customer exists with the given ID
-     * @throws InvalidDateRangeException  if {@code months} is outside [1, 36]
-     */
-    public RewardsResponse calculateRewardsForLastNMonths(String customerId, int months) {
-        validateMonths(months);
-
-        LocalDate endDate   = LocalDate.now();
-        LocalDate startDate = endDate.minusMonths(months).plusDays(1);
-
-        log.info("Calculating rewards for customer={} from {} to {} ({} months)",
-                customerId, startDate, endDate, months);
-
-        return calculateRewards(customerId, startDate, endDate);
-    }
-
-    /**
-     * Calculates rewards for a customer within an explicit date range.
-     *
-     * @param customerId the customer to query
-     * @param startDate  period start (inclusive)
-     * @param endDate    period end   (inclusive)
-     * @return fully populated {@link RewardsResponse}
-     * @throws CustomerNotFoundException  if no customer exists with the given ID
-     * @throws InvalidDateRangeException  if the range is logically invalid
-     */
-    public RewardsResponse calculateRewardsByDateRange(
-            String customerId, LocalDate startDate, LocalDate endDate) {
-
-        validateDateRange(startDate, endDate);
-
-        log.info("Calculating rewards for customer={} from {} to {}",
-                customerId, startDate, endDate);
-
-        return calculateRewards(customerId, startDate, endDate);
-    }
-
-    /**
-     * Calculates rewards for <em>all</em> customers over the last {@code months} months.
-     *
-     * @param months number of months to look back (1–36)
-     * @return list of {@link RewardsResponse}, one per customer
-     * @throws InvalidDateRangeException if {@code months} is outside [1, 36]
-     */
-    public List<RewardsResponse> calculateRewardsForAllCustomers(int months) {
-        validateMonths(months);
-
-        LocalDate endDate   = LocalDate.now();
-        LocalDate startDate = endDate.minusMonths(months).plusDays(1);
-
-        log.info("Calculating rewards for ALL customers from {} to {}", startDate, endDate);
-
-        return transactionRepository.findAllCustomers()
-                .stream()
-                .map(customer -> calculateRewards(customer.getCustomerId(), startDate, endDate))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Calculates the reward points earned for a single transaction amount.
-     * Returns points as BigDecimal to preserve fractional values with explicit rounding.
+     * Calculates reward points for a single transaction amount.
+     * Uses FLOOR rounding to ignore cents — only whole dollars count.
      *
      * @param amount transaction amount (must be non-negative)
      * @return points earned with proper decimal precision
      */
-    public BigDecimal calculatePoints(BigDecimal amount) {
+    private BigDecimal calculatePoints(BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Transaction amount must not be negative");
         }
+
+        // Floor to ignore cents — only count whole dollars per requirement
+        amount = amount.setScale(0, RoundingMode.FLOOR);
 
         BigDecimal points = BigDecimal.ZERO;
 
@@ -143,26 +66,48 @@ public class RewardsService {
         return points;
     }
 
-    // ── Private helpers ──────────────────────────────────────────────────────
-
-    private RewardsResponse calculateRewards(
-            String customerId, LocalDate startDate, LocalDate endDate) {
-
+    /**
+     * Calculates rewards for a single customer over the last N months.
+     */
+    public RewardsResponse calculateRewardsForLastNMonths(String customerId, int months) {
         Customer customer = transactionRepository.findCustomerById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException(customerId));
 
-        List<Transaction> transactions =
-                transactionRepository.findTransactionsByCustomerIdAndDateRange(
-                        customerId, startDate, endDate);
+        LocalDate endDate = LocalDate.now();
+        LocalDate startDate = endDate.minusMonths(months).withDayOfMonth(1);
 
-        log.debug("Found {} transactions for customer={}", transactions.size(), customerId);
+        return buildRewardsResponse(customer, startDate, endDate);
+    }
+
+    /**
+     * Calculates rewards for a single customer within a date range.
+     */
+    public RewardsResponse calculateRewardsByDateRange(String customerId, LocalDate startDate, LocalDate endDate) {
+        Customer customer = transactionRepository.findCustomerById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException(customerId));
+
+        return buildRewardsResponse(customer, startDate, endDate);
+    }
+
+    /**
+     * Calculates rewards for all customers over the last N months.
+     */
+    public List<RewardsResponse> calculateRewardsForAllCustomers(int months) {
+        return transactionRepository.findAllCustomers().stream()
+                .map(customer -> calculateRewardsForLastNMonths(customer.getCustomerId(), months))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Builds a complete rewards response for a customer and date range.
+     */
+    private RewardsResponse buildRewardsResponse(Customer customer, LocalDate startDate, LocalDate endDate) {
+        List<Transaction> transactions = transactionRepository
+                .findTransactionsByCustomerIdAndDateRange(customer.getCustomerId(), startDate, endDate);
 
         // Group transactions by YearMonth
         Map<YearMonth, List<Transaction>> byMonth = transactions.stream()
-                .collect(Collectors.groupingBy(
-                        t -> YearMonth.from(t.getTransactionDate()),
-                        TreeMap::new,
-                        Collectors.toList()));
+                .collect(Collectors.groupingBy(t -> YearMonth.from(t.getTransactionDate())));
 
         List<MonthlyRewardsSummary> monthlyBreakdown = new ArrayList<>();
         BigDecimal totalPoints = BigDecimal.ZERO;
@@ -200,42 +145,30 @@ public class RewardsService {
             totalPoints = totalPoints.add(monthlyPoints);
         }
 
-        int monthsCovered = (int) YearMonth.from(startDate)
-                .until(YearMonth.from(endDate).plusMonths(1),
-                        java.time.temporal.ChronoUnit.MONTHS);
+        // Sort monthly breakdown by year and month descending (most recent first)
+        monthlyBreakdown.sort((a, b) -> {
+            int yearCmp = Integer.compare(b.getYear(), a.getYear());
+            return yearCmp != 0 ? yearCmp : Integer.compare(b.getMonth(), a.getMonth());
+        });
 
         return RewardsResponse.builder()
                 .customerId(customer.getCustomerId())
-                .customerName(customer.getFirstName() + " " + customer.getLastName())
+                .customerName(customer.getName())
                 .email(customer.getEmail())
                 .membershipTier(customer.getMembershipTier())
                 .periodStart(startDate)
                 .periodEnd(endDate)
-                .monthsCovered(monthsCovered)
+                .monthsCovered(calculateMonthsCovered(startDate, endDate))
                 .monthlyBreakdown(monthlyBreakdown)
                 .totalTransactions(transactions.size())
                 .totalRewardPoints(totalPoints)
                 .build();
     }
 
-    private void validateMonths(int months) {
-        if (months < 1 || months > MAX_MONTHS) {
-            throw new InvalidDateRangeException(
-                    "months must be between 1 and " + MAX_MONTHS + ", but was: " + months);
-        }
-    }
-
-    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
-        if (startDate == null || endDate == null) {
-            throw new InvalidDateRangeException("startDate and endDate must not be null");
-        }
-        if (endDate.isBefore(startDate)) {
-            throw new InvalidDateRangeException(
-                    "endDate (" + endDate + ") must not be before startDate (" + startDate + ")");
-        }
-        if (startDate.isAfter(LocalDate.now())) {
-            throw new InvalidDateRangeException(
-                    "startDate (" + startDate + ") must not be in the future");
-        }
+    /**
+     * Calculates the number of months between two dates (inclusive).
+     */
+    private int calculateMonthsCovered(LocalDate startDate, LocalDate endDate) {
+        return (int) (YearMonth.from(endDate).compareTo(YearMonth.from(startDate)) + 1);
     }
 }

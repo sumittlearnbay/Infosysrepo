@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Represents a registered retail customer.
+ * Represents a customer in the rewards program.
  */
 @Data
 @Builder
@@ -14,18 +14,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class Customer {
 
-    /** Unique customer identifier. */
     private String customerId;
-
-    /** Customer's first name. */
-    private String firstName;
-
-    /** Customer's last name. */
-    private String lastName;
-
-    /** Customer's email address. */
+    private String name;
     private String email;
-
-    /** Tier / membership level (e.g. SILVER, GOLD, PLATINUM). */
     private String membershipTier;
 }
