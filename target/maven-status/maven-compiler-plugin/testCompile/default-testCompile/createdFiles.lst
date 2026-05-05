@@ -1,3 +1,4 @@
 com\retailer\rewards\exception\GlobalExceptionHandlerTest.class
-com\retailer\rewards\controller\RewardsControllerTest.class
+com\retailer\rewards\service\RewardsServiceTest.class
 com\retailer\rewards\repository\TransactionRepositoryTest.class
+com\retailer\rewards\controller\RewardsControllerTest.class
