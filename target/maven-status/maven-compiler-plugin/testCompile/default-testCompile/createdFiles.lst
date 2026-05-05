@@ -1,12 +1,3 @@
 com\retailer\rewards\exception\GlobalExceptionHandlerTest.class
-com\retailer\rewards\service\RewardsServiceTest$DateRangeTests.class
-com\retailer\rewards\controller\RewardsControllerTest$GetAllCustomersRewardsTests.class
-com\retailer\rewards\service\RewardsServiceTest$CalculatePointsTests.class
-com\retailer\rewards\service\RewardsServiceTest$EdgeCaseTests.class
-com\retailer\rewards\controller\RewardsControllerTest$GetRewardsByCustomerTests.class
-com\retailer\rewards\service\RewardsServiceTest$LastNMonthsTests.class
-com\retailer\rewards\service\RewardsServiceTest.class
-com\retailer\rewards\controller\RewardsControllerTest$GetRewardsByRangeTests.class
-com\retailer\rewards\repository\TransactionRepositoryTest.class
 com\retailer\rewards\controller\RewardsControllerTest.class
-com\retailer\rewards\service\RewardsServiceTest$AllCustomersTests.class
+com\retailer\rewards\repository\TransactionRepositoryTest.class

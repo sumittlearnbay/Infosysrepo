@@ -5,7 +5,14 @@ package com.retailer.rewards.exception;
  */
 public class CustomerNotFoundException extends RuntimeException {
 
+    private final String customerId;
+
     public CustomerNotFoundException(String customerId) {
-        super("Customer not found: " + customerId);
+        super("Customer not found for ID: " + customerId);
+        this.customerId = customerId;
+    }
+
+    public String getCustomerId() {
+        return customerId;
     }
 }

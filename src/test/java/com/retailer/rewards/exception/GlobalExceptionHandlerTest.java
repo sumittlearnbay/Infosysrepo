@@ -1,94 +1,111 @@
 package com.retailer.rewards.exception;
 
-import com.retailer.rewards.controller.RewardsController;
-import com.retailer.rewards.service.RewardsService;
+import com.retailer.rewards.dto.ApiErrorResponse;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import static org.hamcrest.Matchers.*;
+import java.time.LocalDateTime;
+
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * Verifies the error shapes produced by {@link GlobalExceptionHandler}.
- */
-@ExtendWith(MockitoExtension.class)
-@DisplayName("GlobalExceptionHandler Tests")
 class GlobalExceptionHandlerTest {
 
-    @Mock
-    private RewardsService rewardsService;
-
-    @InjectMocks
-    private RewardsController rewardsController;
-
-    private MockMvc mockMvc;
+    private GlobalExceptionHandler handler;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(rewardsController)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+        handler = new GlobalExceptionHandler();
     }
 
-    @Test
-    @DisplayName("CustomerNotFoundException maps to 404 with correct body")
-    void customerNotFoundMapsTo404() throws Exception {
-        when(rewardsService.calculateRewardsForLastNMonths("X99", 3))
-                .thenThrow(new CustomerNotFoundException("X99"));
+    // =========================
+    // ✅ CUSTOMER NOT FOUND
+    // =========================
 
-        mockMvc.perform(get("/api/v1/rewards/X99").accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status",  is(404)))
-                .andExpect(jsonPath("$.error",   is("Not Found")))
-                .andExpect(jsonPath("$.message", containsString("X99")))
-                .andExpect(jsonPath("$.timestamp").exists());
+    @Test
+    void testHandleCustomerNotFound() {
+        CustomerNotFoundException ex = new CustomerNotFoundException("C001");
+
+        ResponseEntity<ApiErrorResponse> response = handler.handleCustomerNotFound(ex);
+
+        assertEquals(404, response.getStatusCodeValue());
+        assertTrue(response.getBody().getMessage().contains("C001"));
+        assertNotNull(response.getBody().getTimestamp());
+    }
+    // =========================
+    // ✅ INVALID DATE RANGE
+    // =========================
+
+    @Test
+    void testHandleInvalidDateRange() {
+        InvalidDateRangeException ex = new InvalidDateRangeException("Invalid date range");
+
+        ResponseEntity<ApiErrorResponse> response = handler.handleInvalidDateRange(ex);
+
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Invalid date range", response.getBody().getMessage());
     }
 
-    @Test
-    @DisplayName("InvalidDateRangeException maps to 400 with correct body")
-    void invalidDateRangeMapsTo400() throws Exception {
-        when(rewardsService.calculateRewardsForLastNMonths("C001", 0))
-                .thenThrow(new InvalidDateRangeException("months must be between 1 and 36"));
+    // =========================
+    // ✅ ILLEGAL ARGUMENT
+    // =========================
 
-        mockMvc.perform(get("/api/v1/rewards/C001")
-                        .param("months", "0")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status", is(400)))
-                .andExpect(jsonPath("$.error",  is("Bad Request")));
+    @Test
+    void testHandleIllegalArgument() {
+        IllegalArgumentException ex = new IllegalArgumentException("Bad input");
+
+        ResponseEntity<ApiErrorResponse> response = handler.handleIllegalArgument(ex);
+
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Bad input", response.getBody().getMessage());
     }
 
-    @Test
-    @DisplayName("Unexpected RuntimeException maps to 500")
-    void unexpectedExceptionMapsTo500() throws Exception {
-        when(rewardsService.calculateRewardsForLastNMonths("C001", 3))
-                .thenThrow(new RuntimeException("Unexpected failure"));
+    // =========================
+    // ✅ MISSING PARAMETER
+    // =========================
 
-        mockMvc.perform(get("/api/v1/rewards/C001").accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.status", is(500)))
-                .andExpect(jsonPath("$.message", containsString("unexpected error")));
+    @Test
+    void testHandleMissingParameter() {
+        MissingServletRequestParameterException ex =
+                new MissingServletRequestParameterException("customerId", "String");
+
+        ResponseEntity<ApiErrorResponse> response = handler.handleMissingParameter(ex);
+
+        assertEquals(400, response.getStatusCodeValue());
+        assertTrue(response.getBody().getMessage().contains("customerId"));
     }
 
+    // =========================
+    // ✅ TYPE MISMATCH
+    // =========================
+
     @Test
-    @DisplayName("Missing required param maps to 400")
-    void missingParamMapsTo400() throws Exception {
-        // /range endpoint requires startDate & endDate
-        mockMvc.perform(get("/api/v1/rewards/C001/range")
-                        .param("endDate", "2024-12-31")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("startDate")));
+    void testHandleTypeMismatch() {
+        MethodArgumentTypeMismatchException ex =
+                new MethodArgumentTypeMismatchException(
+                        "abc", Integer.class, "months", null, new Throwable()
+                );
+
+        ResponseEntity<ApiErrorResponse> response = handler.handleTypeMismatch(ex);
+
+        assertEquals(400, response.getStatusCodeValue());
+        assertTrue(response.getBody().getMessage().contains("months"));
+    }
+
+    // =========================
+    // ✅ GENERIC EXCEPTION
+    // =========================
+
+    @Test
+    void testHandleGenericException() {
+        Exception ex = new Exception("Unexpected");
+
+        ResponseEntity<ApiErrorResponse> response = handler.handleGenericException(ex);
+
+        assertEquals(500, response.getStatusCodeValue());
+        assertEquals("An unexpected error occurred", response.getBody().getMessage());
     }
 }
