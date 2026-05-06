@@ -329,6 +329,44 @@ server.port=8080
 logging.level.com.retailer.rewards=DEBUG
 ```
 
+### H2 Database
+
+The API now uses Spring Data JPA with an in-memory H2 database.
+
+- H2 console: `http://localhost:8080/h2-console`
+- JDBC URL: `jdbc:h2:mem:rewardsdb`
+- Username: `sa`
+- Password: empty
+
+Seed customers and transactions are inserted at startup when the database is empty.
+
+### Resilience4j Fallback
+
+Rewards service methods are protected by the `rewardsService` circuit breaker. If the repository/database layer is unavailable, customer-level reward calls return an empty rewards response for the requested period and all-customer calls return an empty list. Business exceptions such as unknown customers are still propagated.
+
+### Docker
+
+```bash
+mvn clean package
+docker build -t rewards-api:2.0.0 .
+docker run --rm -p 8080:8080 rewards-api:2.0.0
+```
+
+### Kubernetes
+
+```bash
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl port-forward service/rewards-api 8080:8080
+```
+
+Health probes use:
+
+```text
+/actuator/health/readiness
+/actuator/health/liveness
+```
+
 ---
 
 ## 📦 Dependencies

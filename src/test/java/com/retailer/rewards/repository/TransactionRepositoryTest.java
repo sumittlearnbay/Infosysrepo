@@ -2,8 +2,10 @@ package com.retailer.rewards.repository;
 
 import com.retailer.rewards.model.Customer;
 import com.retailer.rewards.model.Transaction;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -12,14 +14,12 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@SpringBootTest
+@Transactional
 class TransactionRepositoryTest {
 
+    @Autowired
     private TransactionRepository repository;
-
-    @BeforeEach
-    void setUp() {
-        repository = new TransactionRepository();
-    }
 
     // =========================
     // ✅ CUSTOMER TESTS
