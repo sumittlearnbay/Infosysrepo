@@ -5,7 +5,6 @@ import com.retailer.rewards.model.Transaction;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -130,107 +129,5 @@ public class TransactionRepository {
     public void clear() {
         transactionJpaRepository.deleteAll();
         customerJpaRepository.deleteAll();
-    }
-
-    @Transactional
-    public void reinitialize() {
-        clear();
-        seedData();
-    }
-
-    @Transactional
-    public void seedDataIfEmpty() {
-        if (customerJpaRepository.count() == 0 && transactionJpaRepository.count() == 0) {
-            seedData();
-        }
-    }
-
-    private void seedData() {
-        seedCustomers();
-        seedTransactions();
-    }
-
-    private void seedCustomers() {
-        customerJpaRepository.save(Customer.builder()
-                .customerId("C001")
-                .name("Alice Johnson")
-                .email("alice@example.com")
-                .membershipTier("GOLD")
-                .build());
-
-        customerJpaRepository.save(Customer.builder()
-                .customerId("C002")
-                .name("Bob Smith")
-                .email("bob@example.com")
-                .membershipTier("SILVER")
-                .build());
-
-        customerJpaRepository.save(Customer.builder()
-                .customerId("C003")
-                .name("Carol White")
-                .email("carol@example.com")
-                .membershipTier("BRONZE")
-                .build());
-    }
-
-    private void seedTransactions() {
-        LocalDate today = LocalDate.now();
-        LocalDate threeMonthsAgo = today.minusMonths(3);
-
-        transactionJpaRepository.save(Transaction.builder()
-                .transactionId("T001")
-                .customerId("C001")
-                .transactionDate(threeMonthsAgo.plusDays(5))
-                .amount(new BigDecimal("120.75"))
-                .description("Electronics Purchase")
-                .build());
-
-        transactionJpaRepository.save(Transaction.builder()
-                .transactionId("T002")
-                .customerId("C001")
-                .transactionDate(threeMonthsAgo.plusDays(15))
-                .amount(new BigDecimal("75.50"))
-                .description("Grocery Store")
-                .build());
-
-        transactionJpaRepository.save(Transaction.builder()
-                .transactionId("T003")
-                .customerId("C001")
-                .transactionDate(today.minusDays(10))
-                .amount(new BigDecimal("200.00"))
-                .description("Fashion Retail")
-                .build());
-
-        transactionJpaRepository.save(Transaction.builder()
-                .transactionId("T004")
-                .customerId("C002")
-                .transactionDate(threeMonthsAgo.plusDays(8))
-                .amount(new BigDecimal("95.25"))
-                .description("Restaurant")
-                .build());
-
-        transactionJpaRepository.save(Transaction.builder()
-                .transactionId("T005")
-                .customerId("C002")
-                .transactionDate(today.minusDays(5))
-                .amount(new BigDecimal("150.00"))
-                .description("Home Goods")
-                .build());
-
-        transactionJpaRepository.save(Transaction.builder()
-                .transactionId("T006")
-                .customerId("C003")
-                .transactionDate(threeMonthsAgo.plusDays(2))
-                .amount(new BigDecimal("45.99"))
-                .description("Books")
-                .build());
-
-        transactionJpaRepository.save(Transaction.builder()
-                .transactionId("T007")
-                .customerId("C003")
-                .transactionDate(today.minusDays(1))
-                .amount(new BigDecimal("125.50"))
-                .description("Cosmetics")
-                .build());
     }
 }

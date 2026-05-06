@@ -7,10 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.time.LocalDateTime;
-
+import static com.retailer.rewards.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 class GlobalExceptionHandlerTest {
 
@@ -27,12 +25,12 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void testHandleCustomerNotFound() {
-        CustomerNotFoundException ex = new CustomerNotFoundException("C001");
+        CustomerNotFoundException ex = new CustomerNotFoundException(CUSTOMER_ID);
 
         ResponseEntity<ApiErrorResponse> response = handler.handleCustomerNotFound(ex);
 
         assertEquals(404, response.getStatusCodeValue());
-        assertTrue(response.getBody().getMessage().contains("C001"));
+        assertTrue(response.getBody().getMessage().contains(CUSTOMER_ID));
         assertNotNull(response.getBody().getTimestamp());
     }
     // =========================
@@ -41,12 +39,12 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void testHandleInvalidDateRange() {
-        InvalidDateRangeException ex = new InvalidDateRangeException("Invalid date range");
+        InvalidDateRangeException ex = new InvalidDateRangeException(INVALID_DATE_RANGE_MESSAGE);
 
         ResponseEntity<ApiErrorResponse> response = handler.handleInvalidDateRange(ex);
 
         assertEquals(400, response.getStatusCodeValue());
-        assertEquals("Invalid date range", response.getBody().getMessage());
+        assertEquals(INVALID_DATE_RANGE_MESSAGE, response.getBody().getMessage());
     }
 
     // =========================
@@ -55,12 +53,12 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void testHandleIllegalArgument() {
-        IllegalArgumentException ex = new IllegalArgumentException("Bad input");
+        IllegalArgumentException ex = new IllegalArgumentException(BAD_INPUT_MESSAGE);
 
         ResponseEntity<ApiErrorResponse> response = handler.handleIllegalArgument(ex);
 
         assertEquals(400, response.getStatusCodeValue());
-        assertEquals("Bad input", response.getBody().getMessage());
+        assertEquals(BAD_INPUT_MESSAGE, response.getBody().getMessage());
     }
 
     // =========================
@@ -70,12 +68,12 @@ class GlobalExceptionHandlerTest {
     @Test
     void testHandleMissingParameter() {
         MissingServletRequestParameterException ex =
-                new MissingServletRequestParameterException("customerId", "String");
+                new MissingServletRequestParameterException(CUSTOMER_ID_PARAM, STRING_TYPE);
 
         ResponseEntity<ApiErrorResponse> response = handler.handleMissingParameter(ex);
 
         assertEquals(400, response.getStatusCodeValue());
-        assertTrue(response.getBody().getMessage().contains("customerId"));
+        assertTrue(response.getBody().getMessage().contains(CUSTOMER_ID_PARAM));
     }
 
     // =========================
@@ -86,13 +84,13 @@ class GlobalExceptionHandlerTest {
     void testHandleTypeMismatch() {
         MethodArgumentTypeMismatchException ex =
                 new MethodArgumentTypeMismatchException(
-                        "abc", Integer.class, "months", null, new Throwable()
+                        NON_NUMERIC_VALUE, Integer.class, MONTHS_PARAM, null, new Throwable()
                 );
 
         ResponseEntity<ApiErrorResponse> response = handler.handleTypeMismatch(ex);
 
         assertEquals(400, response.getStatusCodeValue());
-        assertTrue(response.getBody().getMessage().contains("months"));
+        assertTrue(response.getBody().getMessage().contains(MONTHS_PARAM));
     }
 
     // =========================
@@ -101,11 +99,11 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void testHandleGenericException() {
-        Exception ex = new Exception("Unexpected");
+        Exception ex = new Exception(GENERIC_EXCEPTION_MESSAGE);
 
         ResponseEntity<ApiErrorResponse> response = handler.handleGenericException(ex);
 
         assertEquals(500, response.getStatusCodeValue());
-        assertEquals("An unexpected error occurred", response.getBody().getMessage());
+        assertEquals(GENERIC_ERROR_RESPONSE, response.getBody().getMessage());
     }
 }

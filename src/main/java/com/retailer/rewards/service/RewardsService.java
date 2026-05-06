@@ -7,13 +7,11 @@ import com.retailer.rewards.exception.CustomerNotFoundException;
 import com.retailer.rewards.model.Customer;
 import com.retailer.rewards.model.Transaction;
 import com.retailer.rewards.repository.TransactionRepository;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.Month;
 import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -70,7 +68,6 @@ public class RewardsService {
     /**
      * Calculates rewards for a single customer over the last N months.
      */
-    @CircuitBreaker(name = "rewardsService", fallbackMethod = "calculateRewardsForLastNMonthsFallback")
     public RewardsResponse calculateRewardsForLastNMonths(String customerId, int months) {
         Customer customer = transactionRepository.findCustomerById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException(customerId));
@@ -84,7 +81,6 @@ public class RewardsService {
     /**
      * Calculates rewards for a single customer within a date range.
      */
-    @CircuitBreaker(name = "rewardsService", fallbackMethod = "calculateRewardsByDateRangeFallback")
     public RewardsResponse calculateRewardsByDateRange(String customerId, LocalDate startDate, LocalDate endDate) {
         Customer customer = transactionRepository.findCustomerById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException(customerId));
@@ -95,7 +91,6 @@ public class RewardsService {
     /**
      * Calculates rewards for all customers over the last N months.
      */
-    @CircuitBreaker(name = "rewardsService", fallbackMethod = "calculateRewardsForAllCustomersFallback")
     public List<RewardsResponse> calculateRewardsForAllCustomers(int months) {
         return transactionRepository.findAllCustomers().stream()
                 .map(customer -> calculateRewardsForLastNMonths(customer.getCustomerId(), months))
@@ -174,48 +169,5 @@ public class RewardsService {
      */
     private int calculateMonthsCovered(LocalDate startDate, LocalDate endDate) {
         return (int) (YearMonth.from(endDate).compareTo(YearMonth.from(startDate)) + 1);
-    }
-
-    private RewardsResponse calculateRewardsForLastNMonthsFallback(String customerId, int months, Throwable throwable) {
-        rethrowBusinessException(throwable);
-
-        LocalDate endDate = LocalDate.now();
-        LocalDate startDate = endDate.minusMonths(months).withDayOfMonth(1);
-        return buildFallbackResponse(customerId, startDate, endDate);
-    }
-
-    private RewardsResponse calculateRewardsByDateRangeFallback(
-            String customerId, LocalDate startDate, LocalDate endDate, Throwable throwable) {
-        rethrowBusinessException(throwable);
-        return buildFallbackResponse(customerId, startDate, endDate);
-    }
-
-    private List<RewardsResponse> calculateRewardsForAllCustomersFallback(int months, Throwable throwable) {
-        rethrowBusinessException(throwable);
-        return Collections.emptyList();
-    }
-
-    private RewardsResponse buildFallbackResponse(String customerId, LocalDate startDate, LocalDate endDate) {
-        return RewardsResponse.builder()
-                .customerId(customerId)
-                .customerName("Rewards unavailable")
-                .email("")
-                .membershipTier("UNKNOWN")
-                .periodStart(startDate)
-                .periodEnd(endDate)
-                .monthsCovered(calculateMonthsCovered(startDate, endDate))
-                .monthlyBreakdown(Collections.emptyList())
-                .totalTransactions(0)
-                .totalRewardPoints(BigDecimal.ZERO)
-                .build();
-    }
-
-    private void rethrowBusinessException(Throwable throwable) {
-        if (throwable instanceof CustomerNotFoundException customerNotFoundException) {
-            throw customerNotFoundException;
-        }
-        if (throwable instanceof IllegalArgumentException illegalArgumentException) {
-            throw illegalArgumentException;
-        }
     }
 }

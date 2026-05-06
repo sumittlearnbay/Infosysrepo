@@ -1,185 +1,118 @@
 package com.retailer.rewards.controller;
 
-import com.retailer.rewards.dto.RewardsResponse;
-import com.retailer.rewards.exception.InvalidDateRangeException;
-import com.retailer.rewards.service.RewardsService;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static com.retailer.rewards.TestConstants.*;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
+@AutoConfigureMockMvc
 class RewardsControllerTest {
 
-    @Mock
-    private RewardsService rewardsService;
-
-    @InjectMocks
-    private RewardsController rewardsController;
-
-    // =========================
-    // ✅ HAPPY PATH TESTS
-    // =========================
+    @Autowired
+    private MockMvc mockMvc;
 
     @Test
-    void testDateRangeQuerySuccess() {
-        RewardsResponse mockResponse = new RewardsResponse();
-        when(rewardsService.calculateRewardsByDateRange(anyString(), any(), any()))
-                .thenReturn(mockResponse);
-
-        ResponseEntity<?> response = rewardsController.getRewards(
-                "C1",
-                3,
-                LocalDate.of(2024, 1, 1),
-                LocalDate.of(2024, 2, 1)
-        );
-
-        assertEquals(200, response.getStatusCodeValue());
-        assertEquals(mockResponse, response.getBody());
-
-        verify(rewardsService, times(1))
-                .calculateRewardsByDateRange(anyString(), any(), any());
+    void testDateRangeQuerySuccess() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(CUSTOMER_ID_PARAM, CUSTOMER_ID)
+                        .param(START_DATE_PARAM, LocalDate.now().minusMonths(DEFAULT_MONTHS).toString())
+                        .param(END_DATE_PARAM, LocalDate.now().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(JSON_CUSTOMER_ID).value(CUSTOMER_ID))
+                .andExpect(jsonPath(JSON_CUSTOMER_NAME).value(CUSTOMER_NAME))
+                .andExpect(jsonPath(JSON_TOTAL_TRANSACTIONS).value(SEEDED_CUSTOMER_COUNT));
     }
 
     @Test
-    void testSingleCustomerDefaultMonths() {
-        RewardsResponse mockResponse = new RewardsResponse();
-        when(rewardsService.calculateRewardsForLastNMonths("C1", 3))
-                .thenReturn(mockResponse);
-
-        ResponseEntity<?> response = rewardsController.getRewards(
-                "C1",
-                3,
-                null,
-                null
-        );
-
-        assertEquals(200, response.getStatusCodeValue());
-        assertEquals(mockResponse, response.getBody());
-
-        verify(rewardsService).calculateRewardsForLastNMonths("C1", 3);
+    void testSingleCustomerDefaultMonths() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(CUSTOMER_ID_PARAM, CUSTOMER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(JSON_CUSTOMER_ID).value(CUSTOMER_ID))
+                .andExpect(jsonPath(JSON_CUSTOMER_NAME).value(CUSTOMER_NAME))
+                .andExpect(jsonPath(JSON_TOTAL_TRANSACTIONS).value(SEEDED_CUSTOMER_COUNT));
     }
 
     @Test
-    void testAllCustomersDefaultMonths() {
-        List<RewardsResponse> mockList = Arrays.asList(new RewardsResponse(), new RewardsResponse());
-
-        when(rewardsService.calculateRewardsForAllCustomers(3))
-                .thenReturn(mockList);
-
-        ResponseEntity<?> response = rewardsController.getRewards(
-                null,
-                3,
-                null,
-                null
-        );
-
-        assertEquals(200, response.getStatusCodeValue());
-        assertEquals(mockList, response.getBody());
-
-        verify(rewardsService).calculateRewardsForAllCustomers(3);
-    }
-
-    // =========================
-    // ❌ VALIDATION TESTS
-    // =========================
-
-    @Test
-    void testMonthsAndDateRangeConflict() {
-        assertThrows(InvalidDateRangeException.class, () ->
-                rewardsController.getRewards(
-                        "C1",
-                        5,
-                        LocalDate.now(),
-                        LocalDate.now()
-                )
-        );
+    void testAllCustomersDefaultMonths() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath(JSON_ROOT, hasSize(SEEDED_CUSTOMER_COUNT)));
     }
 
     @Test
-    void testMissingEndDate() {
-        InvalidDateRangeException ex = assertThrows(InvalidDateRangeException.class, () ->
-                rewardsController.getRewards(
-                        "C1",
-                        3,
-                        LocalDate.now(),
-                        null
-                )
-        );
-
-        assertTrue(ex.getMessage().contains("endDate"));
+    void testMonthsAndDateRangeConflict() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(CUSTOMER_ID_PARAM, CUSTOMER_ID)
+                        .param(MONTHS_PARAM, String.valueOf(CUSTOM_MONTHS))
+                        .param(START_DATE_PARAM, LocalDate.now().toString())
+                        .param(END_DATE_PARAM, LocalDate.now().toString()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void testMissingStartDate() {
-        InvalidDateRangeException ex = assertThrows(InvalidDateRangeException.class, () ->
-                rewardsController.getRewards(
-                        "C1",
-                        3,
-                        null,
-                        LocalDate.now()
-                )
-        );
-
-        assertTrue(ex.getMessage().contains("startDate"));
+    void testMissingEndDate() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(CUSTOMER_ID_PARAM, CUSTOMER_ID)
+                        .param(START_DATE_PARAM, LocalDate.now().toString()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void testDateRangeWithoutCustomerId() {
-        assertThrows(InvalidDateRangeException.class, () ->
-                rewardsController.getRewards(
-                        null,
-                        3,
-                        LocalDate.of(2024, 1, 1),
-                        LocalDate.of(2024, 2, 1)
-                )
-        );
+    void testMissingStartDate() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(CUSTOMER_ID_PARAM, CUSTOMER_ID)
+                        .param(END_DATE_PARAM, LocalDate.now().toString()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void testEndDateBeforeStartDate() {
-        assertThrows(InvalidDateRangeException.class, () ->
-                rewardsController.getRewards(
-                        "C1",
-                        3,
-                        LocalDate.of(2024, 2, 1),
-                        LocalDate.of(2024, 1, 1)
-                )
-        );
+    void testDateRangeWithoutCustomerId() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(START_DATE_PARAM, RANGE_START.toString())
+                        .param(END_DATE_PARAM, RANGE_END.toString()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void testFutureStartDate() {
-        assertThrows(InvalidDateRangeException.class, () ->
-                rewardsController.getRewards(
-                        "C1",
-                        3,
-                        LocalDate.now().plusDays(1),
-                        LocalDate.now().plusDays(2)
-                )
-        );
+    void testEndDateBeforeStartDate() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(CUSTOMER_ID_PARAM, CUSTOMER_ID)
+                        .param(START_DATE_PARAM, LATER_RANGE_START.toString())
+                        .param(END_DATE_PARAM, EARLIER_RANGE_END.toString()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void testInvalidMonthsLow() {
-        assertThrows(InvalidDateRangeException.class, () ->
-                rewardsController.getRewards(null, 0, null, null)
-        );
+    void testFutureStartDate() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(CUSTOMER_ID_PARAM, CUSTOMER_ID)
+                        .param(START_DATE_PARAM, LocalDate.now().plusDays(1).toString())
+                        .param(END_DATE_PARAM, LocalDate.now().plusDays(2).toString()))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void testInvalidMonthsHigh() {
-        assertThrows(InvalidDateRangeException.class, () ->
-                rewardsController.getRewards(null, 37, null, null)
-        );
+    void testInvalidMonthsLow() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(MONTHS_PARAM, String.valueOf(MIN_INVALID_MONTHS)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testInvalidMonthsHigh() throws Exception {
+        mockMvc.perform(get(REWARDS_API_PATH)
+                        .param(MONTHS_PARAM, String.valueOf(MAX_INVALID_MONTHS)))
+                .andExpect(status().isBadRequest());
     }
 }
